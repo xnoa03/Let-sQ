@@ -1,4 +1,4 @@
-#🚑 AI를 활용한 환자 맞춤형 최적 응급 이송 시뮬레이션 개발
+# 🚑 AI를 활용한 환자 맞춤형 최적 응급 이송 시뮬레이션 개발
 
 <div align="left">
   <img src="https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white">
