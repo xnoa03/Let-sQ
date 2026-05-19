@@ -40,7 +40,7 @@ def load_symptoms():
     with open(path, encoding='utf-8-sig', newline='') as f:
         reader = csv.DictReader(f)
         meta_cols = {'symptom_name', 'ui_symptom_name', 'ktas_level'}
-        hospital_cols = [c for c in reader.fieldnames if c not in meta_cols]
+        hospital_cols = [c for c in (reader.fieldnames or []) if c not in meta_cols]
         for row in reader:
             symptoms.append({
                 'symptom_name': row['symptom_name'],
