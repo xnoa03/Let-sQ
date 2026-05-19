@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>응급 이송 시뮬레이션 콘솔</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-0: #0a0d12;
+  --bg-1: #11161e;
+  --bg-2: #161c26;
+  --bg-3: #1d242f;
+  --border: #232b38;
+  --border-soft: #1a2029;
+  --text-0: #e8edf5;
+  --text-1: #a4b0c2;
+  --text-2: #6b7689;
+  --accent-red: #ff3b3b;
+  --accent-red-glow: rgba(255, 59, 59, 0.25);
+  --accent-amber: #ffb347;
+  --accent-cyan: #4dd4e0;
+  --accent-cyan-glow: rgba(77, 212, 224, 0.18);
+  --accent-green: #4ade80;
+  --ktas-1: #ef4444;
+  --ktas-2: #f97316;
+  --ktas-3: #eab308;
+  --ktas-4: #22c55e;
+  --shadow: 0 8px 32px rgba(0,0,0,0.45);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: 'Pretendard', -apple-system, sans-serif;
+  background: var(--bg-0);
+  color: var(--text-0);
+  overflow: hidden;
+  letter-spacing: -0.005em;
+}
+
+.mono { font-family: 'IBM Plex Mono', monospace; }
+
+/* ============ HEADER ============ */
+.header {
+  height: 60px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 24px;
+  position: relative;
+  z-index: 10;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+
+.brand-mark {
+  width: 30px; height: 30px;
+  background: var(--accent-red);
+  border-radius: 6px;
+  position: relative;
+  box-shadow: 0 0 18px var(--accent-red-glow);
+  flex-shrink: 0;
+}
+.brand-mark::before, .brand-mark::after {
+  content: '';
+  position: absolute;
+  background: white;
+  border-radius: 1px;
+}
+.brand-mark::before {
+  top: 50%; left: 22%; right: 22%; height: 4px;
+  transform: translateY(-50%);
+}
+.brand-mark::after {
+  left: 50%; top: 22%; bottom: 22%; width: 4px;
+  transform: translateX(-50%);
+}
+
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-text .ko { font-size: 14px; font-weight: 600; }
+.brand-text .en {
+  font-size: 10px; color: var(--text-2);
+  letter-spacing: 0.18em; text-transform: uppercase;
+  margin-top: 2px; font-family: 'IBM Plex Mono', monospace;
+}
+
+.status-pills { display: flex; gap: 10px; margin-left: auto; }
+
+.pill {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text-1);
+  font-family: 'IBM Plex Mono', monospace;
+  display: flex; align-items: center; gap: 8px;
+  letter-spacing: 0.06em;
+}
+
+.pill-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 8px var(--accent-green);
+  animation: pulse 2s infinite;
+}
+.pill-dot.amber { background: var(--accent-amber); box-shadow: 0 0 8px var(--accent-amber); }
+
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* ============ LAYOUT ============ */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  height: calc(100vh - 60px);
+}
+
+/* ============ MAP ============ */
+.map-area {
+  position: relative;
+  background: var(--bg-0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.map-area::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(77, 212, 224, 0.045), transparent 70%);
+  pointer-events: none;
+}
+
+.map-frame {
+  position: relative;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  width: min(82vh, 88%);
+  aspect-ratio: 1;
+  box-shadow: 0 0 60px rgba(0,0,0,0.5);
+}
+
+.corner {
+  position: absolute;
+  width: 18px; height: 18px;
+  border: 2px solid var(--accent-cyan);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.corner.tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.corner.tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.corner.bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+.corner.br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+.map-svg {
+  width: 100%; height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+.map-label {
+  position: absolute;
+  top: 12px; left: 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text-2);
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.map-coord {
+  position: absolute;
+  bottom: 12px; right: 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--accent-cyan);
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+.map-hint {
+  position: absolute;
+  bottom: 12px; left: 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--text-2);
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
+
+/* hospital markers */
+.hospital-group {
+  cursor: pointer;
+  transition: transform 0.18s;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.hospital-group:hover { transform: scale(1.18); }
+.hospital-label {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 10px;
+  fill: var(--text-1);
+  text-anchor: middle;
+  pointer-events: none;
+  font-weight: 500;
+}
+
+/* tooltip */
+.tooltip {
+  position: absolute;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  z-index: 100;
+  min-width: 240px;
+  box-shadow: var(--shadow);
+}
+.tooltip.show { opacity: 1; }
+.tooltip h4 {
+  font-size: 13px;
+  margin-bottom: 8px;
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 8px;
+}
+.tooltip-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+.tooltip-tag.r1 { background: rgba(77,212,224,0.15); color: var(--accent-cyan); }
+.tooltip-tag.r2 { background: rgba(91,158,255,0.15); color: #5b9eff; }
+.tooltip-tag.r3 { background: rgba(167,139,250,0.15); color: #a78bfa; }
+.tooltip-row {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 11px; padding: 2px 0;
+}
+.tooltip-row .label {
+  color: var(--text-2); font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.05em;
+}
+.tooltip-row .value {
+  color: var(--text-0); font-family: 'IBM Plex Mono', monospace;
+}
+.tooltip-equipment {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.eq-chip {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--bg-3);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+  letter-spacing: 0.04em;
+}
+
+/* ============ SIDE PANEL ============ */
+.side-panel {
+  background: var(--bg-1);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.panel-title {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text-2);
+  text-transform: uppercase;
+  font-family: 'IBM Plex Mono', monospace;
+  margin-bottom: 6px;
+}
+
+.panel-subtitle { font-size: 16px; font-weight: 600; }
+
+.dispatch-btn {
+  margin: 18px 22px;
+  background: var(--accent-red);
+  color: white;
+  border: none;
+  padding: 16px 20px;
+  border-radius: 6px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.dispatch-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(255,255,255,0.18), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.55s;
+}
+.dispatch-btn:hover {
+  background: #ff5050;
+  box-shadow: 0 0 26px var(--accent-red-glow);
+  transform: translateY(-1px);
+}
+.dispatch-btn:hover::before { transform: translateX(100%); }
+.dispatch-btn svg { width: 18px; height: 18px; }
+
+.stat-grid {
+  padding: 0 22px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stat-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+.stat-card .label {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  font-family: 'IBM Plex Mono', monospace;
+  margin-bottom: 4px;
+}
+.stat-card .value {
+  font-size: 22px;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: -0.02em;
+}
+.stat-card .value.red { color: var(--accent-red); }
+.stat-card .value.cyan { color: var(--accent-cyan); }
+
+.legend {
+  padding: 14px 22px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--text-2);
+  letter-spacing: 0.05em;
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+.patient-list-header {
+  padding: 18px 22px 10px;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text-2);
+  text-transform: uppercase;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.patient-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 22px 22px;
+}
+.patient-list::-webkit-scrollbar { width: 4px; }
+.patient-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.patient-empty {
+  text-align: center;
+  color: var(--text-2);
+  font-size: 12px;
+  padding: 28px 0;
+  font-style: italic;
+}
+
+.patient-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent-red);
+  border-radius: 4px;
+  padding: 11px 13px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.patient-card.k1 { border-left-color: var(--ktas-1); }
+.patient-card.k2 { border-left-color: var(--ktas-2); }
+.patient-card.k3 { border-left-color: var(--ktas-3); }
+.patient-card.k4 { border-left-color: var(--ktas-4); }
+.patient-card-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+.patient-card-id {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-0);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.ktas-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.08em;
+}
+.ktas-badge.k1 { background: var(--ktas-1); color: white; }
+.ktas-badge.k2 { background: var(--ktas-2); color: white; }
+.ktas-badge.k3 { background: var(--ktas-3); color: #1a1a1a; }
+.ktas-badge.k4 { background: var(--ktas-4); color: white; }
+.patient-card-time {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--text-2);
+  margin-left: auto;
+}
+.patient-card-meta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-1);
+  letter-spacing: 0.04em;
+}
+.patient-card-symptoms {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  margin-top: 8px;
+}
+.symptom-chip-mini {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  color: var(--text-1);
+}
+
+/* ============ MODAL ============ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-overlay.show { display: flex; animation: fade 0.2s; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: min(720px, 94vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow);
+  animation: slide-up 0.25s ease-out;
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-header h3 { font-size: 18px; font-weight: 600; }
+.modal-header .sub {
+  font-size: 11px;
+  color: var(--text-2);
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+.close-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  width: 32px; height: 32px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.close-btn:hover { background: var(--bg-2); color: var(--text-0); }
+
+.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+
+.form-section { margin-bottom: 20px; }
+.form-section h4 {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  font-family: 'IBM Plex Mono', monospace;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.form-section h4::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.form-field { display: flex; flex-direction: column; gap: 4px; }
+.form-field label {
+  font-size: 9px;
+  color: var(--text-2);
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.form-field input, .form-field select {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text-0);
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  outline: none;
+  transition: border 0.15s;
+}
+.form-field input:focus, .form-field select:focus {
+  border-color: var(--accent-cyan);
+}
+
+.search-row {
+  display: flex; gap: 8px;
+  margin-bottom: 12px;
+}
+.symptom-search {
+  flex: 1;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text-0);
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 13px;
+  outline: none;
+}
+.symptom-search:focus { border-color: var(--accent-cyan); }
+
+.ktas-filter {
+  display: flex; gap: 4px;
+}
+.ktas-tab {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.12s;
+  font-weight: 500;
+}
+.ktas-tab:hover { color: var(--text-0); border-color: var(--text-2); }
+.ktas-tab.active {
+  background: var(--bg-3);
+  color: var(--text-0);
+  border-color: var(--text-1);
+}
+
+.symptom-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 2px;
+}
+.symptom-list::-webkit-scrollbar { width: 4px; }
+.symptom-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 6px;
+  padding-top: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--text-2);
+  text-transform: uppercase;
+}
+.category-header:first-child { margin-top: 0; padding-top: 0; }
+.category-header::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+}
+
+.symptom-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.symptom-btn {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  padding: 7px 10px 7px 24px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'Pretendard', sans-serif;
+  cursor: pointer;
+  transition: all 0.12s;
+  position: relative;
+}
+.symptom-btn::before {
+  content: attr(data-ktas);
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px; height: 14px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  color: white;
+}
+.symptom-btn[data-ktas="1"]::before { background: var(--ktas-1); }
+.symptom-btn[data-ktas="2"]::before { background: var(--ktas-2); }
+.symptom-btn[data-ktas="3"]::before { background: var(--ktas-3); color: #1a1a1a; }
+.symptom-btn[data-ktas="4"]::before { background: var(--ktas-4); }
+
+.symptom-btn:hover {
+  border-color: var(--accent-cyan);
+  color: var(--text-0);
+}
+.symptom-btn.active {
+  background: rgba(77,212,224,0.08);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.selected-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--accent-cyan);
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: 0.05em;
+}
+
+.modal-footer {
+  padding: 14px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-2);
+  letter-spacing: 0.04em;
+}
+.summary .ktas-pill {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 4px;
+  color: white;
+  font-weight: 600;
+}
+
+.btn-group { display: flex; gap: 8px; }
+
+.btn {
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: all 0.15s;
+}
+.btn-ghost { background: transparent; color: var(--text-1); }
+.btn-ghost:hover { background: var(--bg-2); color: var(--text-0); }
+.btn-primary {
+  background: var(--accent-red);
+  color: white;
+  border-color: var(--accent-red);
+}
+.btn-primary:hover { background: #ff5050; }
+.btn-primary:disabled {
+  background: var(--bg-3);
+  border-color: var(--border);
+  color: var(--text-2);
+  cursor: not-allowed;
+}
+
+.empty-search {
+  text-align: center;
+  color: var(--text-2);
+  font-size: 12px;
+  padding: 20px 0;
+  font-style: italic;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="brand">
+    <div class="brand-mark"></div>
+    <div class="brand-text">
+      <span class="ko">응급 이송 시뮬레이션</span>
+    </div>
+  </div>
+  <div class="status-pills">
+    <div class="pill mono" id="sysTime">--:--:--</div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- ============ MAP ============ -->
+  <div class="map-area">
+    <div class="map-frame" id="mapFrame">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+      <div class="map-label">SECTOR · 1000 × 1000</div>
+      <div class="map-hint">CLICK MAP TO DROP PATIENT</div>
+      <div class="map-coord mono" id="mapCoord">X 000 · Y 000</div>
+      <svg class="map-svg" id="mapSvg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+
+  <!-- ============ SIDE PANEL ============ -->
+  <aside class="side-panel">
+    <div class="panel-header">
+      <div class="panel-title">DISPATCH CONSOLE</div>
+      <div class="panel-subtitle">출동 관제</div>
+    </div>
+
+    <button class="dispatch-btn" id="openModal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      신규 환자 발생
+    </button>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="label">HOSPITALS</div>
+        <div class="value cyan" id="hCount">--</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">ACTIVE CASES</div>
+        <div class="value red" id="pCount">00</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="legend-dot" style="background:#4dd4e0;"></span>권역(1)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#5b9eff;"></span>지역(2)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#a78bfa;"></span>의료기관(3)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#ef4444;"></span>KTAS 환자</div>
+    </div>
+
+    <div class="patient-list-header">현재 환자 / LIVE CASES</div>
+    <div class="patient-list" id="patientList">
+      <div class="patient-empty">발생한 환자가 없습니다.</div>
+    </div>
+  </aside>
+</div>
+
+<!-- ============ MODAL ============ -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h3>신규 환자 등록</h3>
+        <div class="sub">NEW PATIENT INTAKE</div>
+      </div>
+      <button class="close-btn" id="closeModal">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section">
+        <h4>환자 정보 · BASIC INFO</h4>
+        <div class="form-row">
+          <div class="form-field">
+            <label>POS X</label>
+            <input type="number" id="px" min="0" max="1000" value="500">
+          </div>
+          <div class="form-field">
+            <label>POS Y</label>
+            <input type="number" id="py" min="0" max="1000" value="500">
+          </div>
+          <div class="form-field">
+            <label>연령 / AGE</label>
+            <input type="number" id="page" min="0" max="120" value="55">
+          </div>
+          <div class="form-field">
+            <label>성별 / SEX</label>
+            <select id="psex">
+              <option value="M">남 · M</option>
+              <option value="F">여 · F</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h4>증상 선택 · SYMPTOMS <span class="selected-count" id="selCount">0 selected</span></h4>
+        <div class="search-row">
+          <input type="text" class="symptom-search" id="symSearch" placeholder="증상 검색 (예: 흉통, 호흡곤란, 출혈...)">
+          <div class="ktas-filter" id="ktasFilter">
+            <button class="ktas-tab active" data-k="all">ALL</button>
+            <button class="ktas-tab" data-k="1">K1</button>
+            <button class="ktas-tab" data-k="2">K2</button>
+            <button class="ktas-tab" data-k="3">K3</button>
+            <button class="ktas-tab" data-k="4">K4</button>
+          </div>
+        </div>
+        <div class="symptom-list" id="symptomList"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div class="summary" id="summary">증상을 선택해주세요</div>
+      <div class="btn-group">
+        <button class="btn btn-ghost" id="cancelBtn">취소</button>
+        <button class="btn btn-primary" id="submitBtn" disabled>출동 지령 · DISPATCH</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════
+   Flask API 에서 데이터 로드
+   - /api/hospitals → 병원 정적 데이터
+   - /api/symptoms  → 증상 + 처치 가능 매트릭스
+   ════════════════════════════════════════════════════ */
+
+let HOSPITALS = [];
+let SYMPTOMS  = [];
+
+const RATING_NAME  = { 1: '권역응급의료센터', 2: '지역응급의료센터', 3: '응급의료기관' };
+const RATING_COLOR = { 1: '#4dd4e0', 2: '#5b9eff', 3: '#a78bfa' };
+
+// KTAS 색상 — 응급도 직관성을 위해 위험도-그라데이션 사용
+// (공식 KTAS 색상: 1=파랑, 2=빨강, 3=노랑, 4=초록, 5=흰색)
+const KTAS_COLOR = { 1: '#ef4444', 2: '#f97316', 3: '#eab308', 4: '#22c55e' };
+
+/* ════════ MAP SETUP ════════ */
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('mapSvg');
+const tooltip = document.getElementById('tooltip');
+const mapArea = document.querySelector('.map-area');
+
+// grid lines
+const grid = document.createElementNS(NS, 'g');
+for (let i = 100; i < 1000; i += 100) {
+  const v = document.createElementNS(NS, 'line');
+  v.setAttribute('x1', i); v.setAttribute('x2', i);
+  v.setAttribute('y1', 0); v.setAttribute('y2', 1000);
+  v.setAttribute('stroke', i % 500 === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)');
+  v.setAttribute('stroke-width', 0.5);
+  grid.appendChild(v);
+
+  const h = document.createElementNS(NS, 'line');
+  h.setAttribute('y1', i); h.setAttribute('y2', i);
+  h.setAttribute('x1', 0); h.setAttribute('x2', 1000);
+  h.setAttribute('stroke', i % 500 === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)');
+  h.setAttribute('stroke-width', 0.5);
+  grid.appendChild(h);
+}
+svg.appendChild(grid);
+
+// center crosshair
+const cross = document.createElementNS(NS, 'g');
+cross.setAttribute('opacity', '0.15');
+[[480,500,520,500],[500,480,500,520]].forEach(c => {
+  const l = document.createElementNS(NS, 'line');
+  l.setAttribute('x1', c[0]); l.setAttribute('y1', c[1]);
+  l.setAttribute('x2', c[2]); l.setAttribute('y2', c[3]);
+  l.setAttribute('stroke', '#4dd4e0');
+  l.setAttribute('stroke-width', 1);
+  cross.appendChild(l);
+});
+svg.appendChild(cross);
+
+// hospital layer
+const hospitalLayer = document.createElementNS(NS, 'g');
+svg.appendChild(hospitalLayer);
+
+function initHospitalMarkers() {
+  HOSPITALS.forEach(h => {
+    const color = RATING_COLOR[h.rating];
+    // rating 1 hospitals get larger markers
+    const scale = h.rating === 1 ? 1.0 : h.rating === 2 ? 0.85 : 0.7;
+
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'hospital-group');
+    g.setAttribute('transform', `translate(${h.x} ${h.y}) scale(${scale})`);
+
+    // outer ring (only for rating 1)
+    if (h.rating === 1) {
+      const ring1 = document.createElementNS(NS, 'circle');
+      ring1.setAttribute('r', 22);
+      ring1.setAttribute('fill', 'none');
+      ring1.setAttribute('stroke', color);
+      ring1.setAttribute('stroke-width', 1);
+      ring1.setAttribute('opacity', '0.3');
+      g.appendChild(ring1);
+    }
+
+    // mid ring
+    const ring2 = document.createElementNS(NS, 'circle');
+    ring2.setAttribute('r', 14);
+    ring2.setAttribute('fill', 'none');
+    ring2.setAttribute('stroke', color);
+    ring2.setAttribute('stroke-width', 1.2);
+    ring2.setAttribute('opacity', '0.55');
+    g.appendChild(ring2);
+
+    // core circle
+    const core = document.createElementNS(NS, 'circle');
+    core.setAttribute('r', 9);
+    core.setAttribute('fill', 'var(--bg-0)');
+    core.setAttribute('stroke', color);
+    core.setAttribute('stroke-width', 2);
+    g.appendChild(core);
+
+    // + cross icon
+    const plusH = document.createElementNS(NS, 'rect');
+    plusH.setAttribute('x', -5); plusH.setAttribute('y', -1.2);
+    plusH.setAttribute('width', 10); plusH.setAttribute('height', 2.4);
+    plusH.setAttribute('rx', 0.5);
+    plusH.setAttribute('fill', color);
+    g.appendChild(plusH);
+
+    const plusV = document.createElementNS(NS, 'rect');
+    plusV.setAttribute('x', -1.2); plusV.setAttribute('y', -5);
+    plusV.setAttribute('width', 2.4); plusV.setAttribute('height', 10);
+    plusV.setAttribute('rx', 0.5);
+    plusV.setAttribute('fill', color);
+    g.appendChild(plusV);
+
+    // label
+    const label = document.createElementNS(NS, 'text');
+    label.setAttribute('class', 'hospital-label');
+    label.setAttribute('y', 30);
+    label.textContent = h.name;
+    g.appendChild(label);
+
+    g.addEventListener('mouseenter', e => showTip(e, h));
+    g.addEventListener('mousemove', e => moveTip(e));
+    g.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+
+    hospitalLayer.appendChild(g);
+  });
+
+  document.getElementById('hCount').textContent = String(HOSPITALS.length).padStart(2, '0');
+
+}
+
+async function init() {
+  try {
+    const [h, s] = await Promise.all([
+      fetch('/api/hospitals').then(r => r.json()),
+      fetch('/api/symptoms').then(r => r.json())
+    ]);
+    HOSPITALS = h;
+    SYMPTOMS = s;
+    initHospitalMarkers();
+  } catch (err) {
+    console.error('데이터 로딩 실패:', err);
+    document.getElementById('mapSvg').innerHTML =
+      '<text x="500" y="500" text-anchor="middle" fill="#ff3b3b" font-size="20">⚠ 데이터 로딩 실패 — 서버를 확인해주세요</text>';
+  }
+}
+
+init();
+
+function showTip(e, h) {
+  const equipCount = Object.values(h.equipment).filter(v => v === 1).length;
+  const equipChips = Object.entries(h.equipment)
+    .filter(([k, v]) => v === 1)
+    .map(([k]) => `<span class="eq-chip">${k}</span>`)
+    .join('');
+
+  tooltip.innerHTML = `
+    <h4>${h.name} <span class="tooltip-tag r${h.rating}">${RATING_NAME[h.rating]}</span></h4>
+    <div class="tooltip-row"><span class="label">COORD</span><span class="value">${h.x}, ${h.y}</span></div>
+    <div class="tooltip-row"><span class="label">병상 · BEDS</span><span class="value">${h.sickbed}</span></div>
+    <div class="tooltip-row"><span class="label">수술실 · OR</span><span class="value">${h.operating_room}</span></div>
+    <div class="tooltip-row"><span class="label">장비 · EQUIP</span><span class="value">${equipCount} / 10</span></div>
+    <div class="tooltip-equipment">${equipChips}</div>
+  `;
+  tooltip.classList.add('show');
+  moveTip(e);
+}
+function moveTip(e) {
+  const rect = mapArea.getBoundingClientRect();
+  const tw = tooltip.offsetWidth;
+  const th = tooltip.offsetHeight;
+  let left = e.clientX - rect.left + 14;
+  let top = e.clientY - rect.top + 14;
+  // 화면 우측 끝 보호
+  if (left + tw > rect.width) left = e.clientX - rect.left - tw - 14;
+  if (top + th > rect.height) top = e.clientY - rect.top - th - 14;
+  tooltip.style.left = left + 'px';
+  tooltip.style.top  = top + 'px';
+}
+
+// coordinate readout
+svg.addEventListener('mousemove', e => {
+  const r = svg.getBoundingClientRect();
+  const x = Math.round(((e.clientX - r.left) / r.width) * 1000);
+  const y = Math.round(((e.clientY - r.top) / r.height) * 1000);
+  document.getElementById('mapCoord').textContent =
+    `X ${String(x).padStart(3,'0')} · Y ${String(y).padStart(3,'0')}`;
+});
+
+// click map → open modal with pre-filled coordinates
+svg.addEventListener('click', e => {
+  if (e.target.closest('.hospital-group')) return;
+  const r = svg.getBoundingClientRect();
+  const x = Math.round(((e.clientX - r.left) / r.width) * 1000);
+  const y = Math.round(((e.clientY - r.top) / r.height) * 1000);
+  openModal(x, y);
+});
+
+/* ════════ MODAL & SYMPTOMS ════════ */
+const modal = document.getElementById('modal');
+const symptomList = document.getElementById('symptomList');
+const selectedSymptoms = new Set();  // stores symptom_name (internal id)
+let currentKtasFilter = 'all';
+
+// 카테고리 추출 (symptom_name 의 _ 앞 prefix)
+function getCategory(s) {
+  const i = s.symptom_name.indexOf('_');
+  return i === -1 ? '기타' : s.symptom_name.slice(0, i);
+}
+
+function renderSymptoms(filter = '') {
+  symptomList.innerHTML = '';
+  const f = filter.trim();
+
+  let list = SYMPTOMS.filter(s => {
+    if (currentKtasFilter !== 'all' && s.ktas_level !== parseInt(currentKtasFilter)) return false;
+    if (f && !s.ui_symptom_name.includes(f) && !s.symptom_name.includes(f)) return false;
+    return true;
+  });
+
+  if (list.length === 0) {
+    symptomList.innerHTML = '<div class="empty-search">검색 결과가 없습니다.</div>';
+    return;
+  }
+
+  // 카테고리별 그룹화 → KTAS 오름차순(중증 우선) 정렬
+  const groups = {};
+  list.forEach(s => {
+    const cat = getCategory(s);
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(s);
+  });
+  // category order: 신경학적, 심혈관계, 외과, 출혈, 중독·대사, 알러지, 안과, 소아과, 정신과, 준응급, others
+  const order = ['신경학적','심혈관계','외과','출혈','중독·대사','알러지','안과','소아과','정신과','준응급'];
+  const sortedCats = Object.keys(groups).sort((a,b) => {
+    const ai = order.indexOf(a), bi = order.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  sortedCats.forEach(cat => {
+    const header = document.createElement('div');
+    header.className = 'category-header';
+    header.innerHTML = `<span>${cat}</span>`;
+    symptomList.appendChild(header);
+
+    const group = document.createElement('div');
+    group.className = 'symptom-group';
+    groups[cat].sort((a,b) => a.ktas_level - b.ktas_level).forEach(s => {
+      const btn = document.createElement('button');
+      btn.className = 'symptom-btn' + (selectedSymptoms.has(s.symptom_name) ? ' active' : '');
+      btn.setAttribute('data-ktas', s.ktas_level);
+      btn.textContent = s.ui_symptom_name;
+      btn.title = `KTAS ${s.ktas_level} · ${s.symptom_name}`;
+      btn.addEventListener('click', () => {
+        if (selectedSymptoms.has(s.symptom_name)) selectedSymptoms.delete(s.symptom_name);
+        else selectedSymptoms.add(s.symptom_name);
+        btn.classList.toggle('active');
+        updateSummary();
+      });
+      group.appendChild(btn);
+    });
+    symptomList.appendChild(group);
+  });
+}
+
+function getHighestKtas() {
+  let max = 5;
+  selectedSymptoms.forEach(id => {
+    const s = SYMPTOMS.find(x => x.symptom_name === id);
+    if (s && s.ktas_level < max) max = s.ktas_level;
+  });
+  return max === 5 ? null : max;
+}
+
+function updateSummary() {
+  const n = selectedSymptoms.size;
+  document.getElementById('selCount').textContent = `${n} selected`;
+  document.getElementById('submitBtn').disabled = n === 0;
+
+  if (n === 0) {
+    document.getElementById('summary').textContent = '증상을 선택해주세요';
+  } else {
+    const k = getHighestKtas();
+    document.getElementById('summary').innerHTML = 
+      `${n}개 선택됨 · 최고 중증도 <span class="ktas-pill" style="background:${KTAS_COLOR[k]}; color:${k===3?'#1a1a1a':'white'};">KTAS ${k}</span>`;
+  }
+}
+
+// KTAS filter tabs
+document.getElementById('ktasFilter').addEventListener('click', e => {
+  if (!e.target.classList.contains('ktas-tab')) return;
+  document.querySelectorAll('.ktas-tab').forEach(t => t.classList.remove('active'));
+  e.target.classList.add('active');
+  currentKtasFilter = e.target.getAttribute('data-k');
+  renderSymptoms(document.getElementById('symSearch').value);
+});
+
+function openModal(x, y) {
+  selectedSymptoms.clear();
+  currentKtasFilter = 'all';
+  document.querySelectorAll('.ktas-tab').forEach((t,i) => t.classList.toggle('active', i === 0));
+  document.getElementById('symSearch').value = '';
+  if (typeof x === 'number') document.getElementById('px').value = x;
+  if (typeof y === 'number') document.getElementById('py').value = y;
+  renderSymptoms();
+  updateSummary();
+  modal.classList.add('show');
+}
+
+document.getElementById('openModal').addEventListener('click', () => openModal());
+document.getElementById('closeModal').addEventListener('click', () => modal.classList.remove('show'));
+document.getElementById('cancelBtn').addEventListener('click', () => modal.classList.remove('show'));
+document.getElementById('symSearch').addEventListener('input', e => renderSymptoms(e.target.value));
+modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+
+/* ════════ PATIENT SUBMIT ════════ */
+const patients = [];
+let pSeq = 0;
+
+document.getElementById('submitBtn').addEventListener('click', () => {
+  pSeq++;
+  const symps = [...selectedSymptoms].map(id => SYMPTOMS.find(x => x.symptom_name === id));
+  const ktas = Math.min(...symps.map(s => s.ktas_level));
+
+  const p = {
+    id: 'P' + String(pSeq).padStart(3, '0'),
+    x: parseInt(document.getElementById('px').value) || 500,
+    y: parseInt(document.getElementById('py').value) || 500,
+    age: parseInt(document.getElementById('page').value) || 0,
+    sex: document.getElementById('psex').value,
+    symptoms: symps,
+    ktas: ktas,
+    time: new Date()
+  };
+  patients.unshift(p);
+  renderPatients();
+  drawPatientMarker(p);
+  modal.classList.remove('show');
+});
+
+function renderPatients() {
+  document.getElementById('pCount').textContent = String(patients.length).padStart(2, '0');
+  const list = document.getElementById('patientList');
+  if (patients.length === 0) {
+    list.innerHTML = '<div class="patient-empty">발생한 환자가 없습니다.</div>';
+    return;
+  }
+  list.innerHTML = patients.map(p => `
+    <div class="patient-card k${p.ktas}">
+      <div class="patient-card-head">
+        <span class="patient-card-id">${p.id}</span>
+        <span class="ktas-badge k${p.ktas}">KTAS ${p.ktas}</span>
+        <span class="patient-card-time">${p.time.toLocaleTimeString('ko-KR', {hour12:false})}</span>
+      </div>
+      <div class="patient-card-meta">POS ${p.x},${p.y} · ${p.sex}${p.age}</div>
+      <div class="patient-card-symptoms">
+        ${p.symptoms.map(s => `<span class="symptom-chip-mini">${s.ui_symptom_name}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+const patientLayer = document.createElementNS(NS, 'g');
+svg.appendChild(patientLayer);
+
+function drawPatientMarker(p) {
+  const color = KTAS_COLOR[p.ktas];
+  const g = document.createElementNS(NS, 'g');
+  g.setAttribute('transform', `translate(${p.x} ${p.y})`);
+
+  const pulse = document.createElementNS(NS, 'circle');
+  pulse.setAttribute('r', 8);
+  pulse.setAttribute('fill', color + '33');
+  pulse.setAttribute('stroke', color);
+  pulse.setAttribute('stroke-width', 1);
+  pulse.innerHTML = `
+    <animate attributeName="r" values="8;22;8" dur="1.8s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.8;0;0.8" dur="1.8s" repeatCount="indefinite"/>
+  `;
+  g.appendChild(pulse);
+
+  const dot = document.createElementNS(NS, 'circle');
+  dot.setAttribute('r', 5);
+  dot.setAttribute('fill', color);
+  g.appendChild(dot);
+
+  const lbl = document.createElementNS(NS, 'text');
+  lbl.setAttribute('y', -14);
+  lbl.setAttribute('text-anchor', 'middle');
+  lbl.setAttribute('fill', color);
+  lbl.setAttribute('font-family', 'IBM Plex Mono, monospace');
+  lbl.setAttribute('font-size', '11');
+  lbl.setAttribute('font-weight', '500');
+  lbl.textContent = `${p.id} · K${p.ktas}`;
+  g.appendChild(lbl);
+
+  patientLayer.appendChild(g);
+}
+
+/* ════════ CLOCK ════════ */
+function tickClock() {
+  const d = new Date();
+  document.getElementById('sysTime').textContent =
+    d.toLocaleTimeString('ko-KR', {hour12:false}) + ' KST';
+}
+tickClock(); setInterval(tickClock, 1000);
+</script>
+</body>
+</html>
