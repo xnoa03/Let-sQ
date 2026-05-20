@@ -4,8 +4,6 @@ import numpy as np
 import glob
 import joblib
 from xgboost import XGBRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error, r2_score
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.join(current_dir, "..", "data", "raw", "hospital_dynamic_data")
@@ -22,11 +20,19 @@ def train_and_export():
     df = df.replace([np.inf, -np.inf], np.nan).fillna(0)
 
     df = df.sort_values(by=["hospital_name", "time"])
+
     df["beds_lag"] = df.groupby("hospital_name")["beds_available"].shift(1).fillna(0)
     df["op_lag"] = df.groupby("hospital_name")["op_rooms_available"].shift(1).fillna(0)
 
+    df["beds_t10"] = df.groupby("hospital_name")["beds_available"].shift(-1).fillna(0)
+    df["beds_t60"] = df.groupby("hospital_name")["beds_available"].shift(-6).fillna(0)
+    df["op_t10"] = df.groupby("hospital_name")["op_rooms_available"].shift(-1).fillna(0)
+    df["op_t60"] = df.groupby("hospital_name")["op_rooms_available"].shift(-6).fillna(0)
+
     df["hospital_code"] = df["hospital_name"].astype("category").cat.codes
     df["minute"] = df["time"] % 60
+
+    df = df[df["beds_t60"] != 0]
 
     features = [
         "hospital_code",
@@ -37,28 +43,25 @@ def train_and_export():
         "beds_lag",
         "op_lag",
     ]
-    targets = ["beds_available", "op_rooms_available"]
-
-    X = df[features]
-    y = df[targets]
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
-
-    model = XGBRegressor(
-        n_estimators=500, learning_rate=0.05, max_depth=6, n_jobs=-1, random_state=42
-    )
-    model.fit(X_train, y_train)
-
-    y_pred = model.predict(X_test)
-    print(f"MAE : {mean_absolute_error(y_test, y_pred):.2f}")
-    print(f"R2 Score : {r2_score(y_test, y_pred):.2f}")
-
-    model.fit(X, y)
 
     os.makedirs(model_dir, exist_ok=True)
-    joblib.dump(model, os.path.join(model_dir, "hospital_congestion_prediction.pkl"))
+
+    model_10 = XGBRegressor(
+        n_estimators=500, learning_rate=0.05, max_depth=6, n_jobs=-1, random_state=42
+    )
+    model_10.fit(df[features], df[["beds_t10", "op_t10"]])
+    joblib.dump(
+        model_10, os.path.join(model_dir, "after_10_minute_prediction_model.pkl")
+    )
+
+    model_60 = XGBRegressor(
+        n_estimators=500, learning_rate=0.05, max_depth=6, n_jobs=-1, random_state=42
+    )
+    model_60.fit(df[features], df[["beds_t60", "op_t60"]])
+    joblib.dump(
+        model_60, os.path.join(model_dir, "after_60_minute_prediction_model.pkl")
+    )
+
     joblib.dump(
         df[["hospital_name", "hospital_code"]].drop_duplicates(),
         os.path.join(model_dir, "hospital_mapping.pkl"),

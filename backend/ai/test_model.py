@@ -5,13 +5,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from xgboost import plot_importance
 
-model_path = os.path.join("models", "hospital_congestion_prediction.pkl")
+model_path_10 = os.path.join("models", "after_10_minute_prediction_model.pkl")
+model_path_60 = os.path.join("models", "after_60_minute_prediction_model.pkl")
 mapping_path = os.path.join("models", "hospital_mapping.pkl")
-model = joblib.load(model_path)
+
+after_10_minute_prediction_model = joblib.load(model_path_10)
+after_60_minute_prediction_model = joblib.load(model_path_60)
 mapping = joblib.load(mapping_path)
 
 
-def test_scenario(hospital_name, day, hour, minute, ktas, lag_beds, lag_op):
+def test_scenario(
+    hospital_name, day, hour, minute, ktas, lag_beds, lag_op, arrival_minutes
+):
     try:
         h_code = mapping[mapping["hospital_name"] == hospital_name][
             "hospital_code"
@@ -32,19 +37,18 @@ def test_scenario(hospital_name, day, hour, minute, ktas, lag_beds, lag_op):
         ],
     )
 
-    pred = model.predict(input_data)
-    return round(pred[0][0]), round(pred[0][1])
+    pred_10 = after_10_minute_prediction_model.predict(input_data)
+    pred_60 = after_60_minute_prediction_model.predict(input_data)
+
+    w = max(0, min(1, (60 - arrival_minutes) / (60 - 10)))
+
+    final_pred = (pred_10 * w) + (pred_60 * (1 - w))
+
+    return round(final_pred[0][0]), round(final_pred[0][1])
 
 
-print("--- [시나리오 1] 병상 여유 (30개) ---")
-print(test_scenario("대학병원 1", 0, 14, 30, 3, 30, 15))
+print("--- [시나리오 1] 10분 뒤 예측 ---")
+print(test_scenario("대학병원 1", 1, 0, 0, 3, 30, 15, 10))
 
-print("\n--- [시나리오 2] 병상 부족 (0개) ---")
-print(test_scenario("대학병원 1", 0, 14, 30, 3, 0, 15))
-
-
-plt.figure(figsize=(10, 6))
-plot_importance(model, importance_type="weight")
-plt.title("Feature Importance")
-plt.show()
-#
+print("\n--- [시나리오 2] 60분 뒤 예측 ---")
+print(test_scenario("대학병원 1", 0, 14, 30, 3, 30, 15, 60))
