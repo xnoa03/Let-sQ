@@ -42,7 +42,6 @@ body {
 
 .mono { font-family: 'IBM Plex Mono', monospace; }
 
-/* ============ HEADER ============ */
 .header {
   height: 60px;
   background: var(--bg-1);
@@ -112,14 +111,12 @@ body {
 
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-/* ============ LAYOUT ============ */
 .main {
   display: grid;
   grid-template-columns: 1fr 360px;
   height: calc(100vh - 60px);
 }
 
-/* ============ MAP ============ */
 .map-area {
   position: relative;
   background: var(--bg-0);
@@ -197,7 +194,6 @@ body {
   pointer-events: none;
 }
 
-/* hospital markers */
 .hospital-group {
   cursor: pointer;
   transition: transform 0.18s;
@@ -214,7 +210,6 @@ body {
   font-weight: 500;
 }
 
-/* tooltip */
 .tooltip {
   position: absolute;
   background: var(--bg-2);
@@ -274,7 +269,6 @@ body {
   letter-spacing: 0.04em;
 }
 
-/* ============ SIDE PANEL ============ */
 .side-panel {
   background: var(--bg-1);
   border-left: 1px solid var(--border);
@@ -376,6 +370,74 @@ body {
 }
 .legend-item { display: flex; align-items: center; gap: 6px; }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+.legend-arc {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid #22c55e;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+  transform: rotate(-45deg);
+}
+
+.sim-section {
+  margin: 14px 22px 0;
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+}
+.sim-clock-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+}
+.sim-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.sim-clock {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  letter-spacing: 0.04em;
+}
+.sim-controls {
+  display: flex;
+  gap: 4px;
+}
+.sim-btn {
+  flex: 1;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  padding: 6px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.12s;
+}
+.sim-btn:hover { color: var(--text-0); border-color: var(--text-2); }
+.sim-btn.active {
+  background: var(--accent-cyan-glow);
+  color: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+}
+.sim-btn.play.paused {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+
+.sat-arc { transition: stroke 0.3s, stroke-dasharray 0.3s; }
+.sat-arc.critical {
+  animation: critical-pulse 1.2s ease-in-out infinite;
+}
+@keyframes critical-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
 
 .patient-list-header {
   padding: 18px 22px 10px;
@@ -464,7 +526,6 @@ body {
   color: var(--text-1);
 }
 
-/* ============ MODAL ============ */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -765,16 +826,19 @@ body {
   <div class="brand">
     <div class="brand-mark"></div>
     <div class="brand-text">
-      <span class="ko">응급 이송 시뮬레이션</span>
+      <span class="ko">응급 이송 시뮬레이션 콘솔</span>
+      <span class="en">Emergency Dispatch · v0.2</span>
     </div>
   </div>
   <div class="status-pills">
+    <div class="pill"><span class="pill-dot"></span><span>SYSTEM ONLINE</span></div>
+    <div class="pill"><span class="pill-dot amber"></span><span>AI MODEL READY</span></div>
     <div class="pill mono" id="sysTime">--:--:--</div>
   </div>
 </header>
 
 <div class="main">
-  <!-- ============ MAP ============ -->
+
   <div class="map-area">
     <div class="map-frame" id="mapFrame">
       <div class="corner tl"></div>
@@ -789,7 +853,6 @@ body {
     <div class="tooltip" id="tooltip"></div>
   </div>
 
-  <!-- ============ SIDE PANEL ============ -->
   <aside class="side-panel">
     <div class="panel-header">
       <div class="panel-title">DISPATCH CONSOLE</div>
@@ -815,11 +878,25 @@ body {
       </div>
     </div>
 
+    <div class="sim-section">
+      <div class="sim-clock-row">
+        <span class="sim-label">SIM CLOCK</span>
+        <span class="sim-clock mono" id="simClock">--:--</span>
+      </div>
+      <div class="sim-controls">
+        <button class="sim-btn play" id="simPlayBtn" title="Play/Pause">❚❚</button>
+        <button class="sim-btn speed" data-speed="1">1×</button>
+        <button class="sim-btn speed active" data-speed="30">30x</button>
+        <button class="sim-btn speed" data-speed="120">120×</button>
+      </div>
+    </div>
+
     <div class="legend">
       <div class="legend-item"><span class="legend-dot" style="background:#4dd4e0;"></span>권역(1)</div>
       <div class="legend-item"><span class="legend-dot" style="background:#5b9eff;"></span>지역(2)</div>
       <div class="legend-item"><span class="legend-dot" style="background:#a78bfa;"></span>의료기관(3)</div>
       <div class="legend-item"><span class="legend-dot" style="background:#ef4444;"></span>KTAS 환자</div>
+      <div class="legend-item"><span class="legend-arc"></span>병상 가용</div>
     </div>
 
     <div class="patient-list-header">현재 환자 / LIVE CASES</div>
@@ -829,7 +906,6 @@ body {
   </aside>
 </div>
 
-<!-- ============ MODAL ============ -->
 <div class="modal-overlay" id="modal">
   <div class="modal">
     <div class="modal-header">
@@ -891,29 +967,21 @@ body {
 </div>
 
 <script>
-/* ════════════════════════════════════════════════════
-   Flask API 에서 데이터 로드
-   - /api/hospitals → 병원 정적 데이터
-   - /api/symptoms  → 증상 + 처치 가능 매트릭스
-   ════════════════════════════════════════════════════ */
 
 let HOSPITALS = [];
 let SYMPTOMS  = [];
+let DYNAMIC   = {};   
 
 const RATING_NAME  = { 1: '권역응급의료센터', 2: '지역응급의료센터', 3: '응급의료기관' };
 const RATING_COLOR = { 1: '#4dd4e0', 2: '#5b9eff', 3: '#a78bfa' };
 
-// KTAS 색상 — 응급도 직관성을 위해 위험도-그라데이션 사용
-// (공식 KTAS 색상: 1=파랑, 2=빨강, 3=노랑, 4=초록, 5=흰색)
 const KTAS_COLOR = { 1: '#ef4444', 2: '#f97316', 3: '#eab308', 4: '#22c55e' };
 
-/* ════════ MAP SETUP ════════ */
 const NS = 'http://www.w3.org/2000/svg';
 const svg = document.getElementById('mapSvg');
 const tooltip = document.getElementById('tooltip');
 const mapArea = document.querySelector('.map-area');
 
-// grid lines
 const grid = document.createElementNS(NS, 'g');
 for (let i = 100; i < 1000; i += 100) {
   const v = document.createElementNS(NS, 'line');
@@ -932,7 +1000,6 @@ for (let i = 100; i < 1000; i += 100) {
 }
 svg.appendChild(grid);
 
-// center crosshair
 const cross = document.createElementNS(NS, 'g');
 cross.setAttribute('opacity', '0.15');
 [[480,500,520,500],[500,480,500,520]].forEach(c => {
@@ -945,21 +1012,19 @@ cross.setAttribute('opacity', '0.15');
 });
 svg.appendChild(cross);
 
-// hospital layer
 const hospitalLayer = document.createElementNS(NS, 'g');
 svg.appendChild(hospitalLayer);
 
 function initHospitalMarkers() {
   HOSPITALS.forEach(h => {
     const color = RATING_COLOR[h.rating];
-    // rating 1 hospitals get larger markers
+
     const scale = h.rating === 1 ? 1.0 : h.rating === 2 ? 0.85 : 0.7;
 
     const g = document.createElementNS(NS, 'g');
     g.setAttribute('class', 'hospital-group');
     g.setAttribute('transform', `translate(${h.x} ${h.y}) scale(${scale})`);
 
-    // outer ring (only for rating 1)
     if (h.rating === 1) {
       const ring1 = document.createElementNS(NS, 'circle');
       ring1.setAttribute('r', 22);
@@ -970,7 +1035,31 @@ function initHospitalMarkers() {
       g.appendChild(ring1);
     }
 
-    // mid ring
+    
+    const SAT_R = 19;
+    const SAT_CIRC = 2 * Math.PI * SAT_R;
+    const satArc = document.createElementNS(NS, 'circle');
+    satArc.setAttribute('class', 'sat-arc');
+    satArc.setAttribute('r', SAT_R);
+    satArc.setAttribute('cx', 0);
+    satArc.setAttribute('cy', 0);
+    satArc.setAttribute('fill', 'none');
+    satArc.setAttribute('stroke', '#22c55e');
+    satArc.setAttribute('stroke-width', 2.5);
+    satArc.setAttribute('stroke-linecap', 'round');
+    satArc.setAttribute('opacity', '0.85');
+
+    satArc.setAttribute('transform', 'rotate(-90)');
+    satArc.setAttribute('stroke-dasharray', `${SAT_CIRC} ${SAT_CIRC}`);
+    satArc.setAttribute('stroke-dashoffset', '0');
+    g.appendChild(satArc);
+
+    h._satArc = satArc;
+    h._satCirc = SAT_CIRC;
+
+    h._currentBeds = h.sickbed;
+    h._currentOR   = h.operating_room;
+
     const ring2 = document.createElementNS(NS, 'circle');
     ring2.setAttribute('r', 14);
     ring2.setAttribute('fill', 'none');
@@ -979,7 +1068,6 @@ function initHospitalMarkers() {
     ring2.setAttribute('opacity', '0.55');
     g.appendChild(ring2);
 
-    // core circle
     const core = document.createElementNS(NS, 'circle');
     core.setAttribute('r', 9);
     core.setAttribute('fill', 'var(--bg-0)');
@@ -987,7 +1075,6 @@ function initHospitalMarkers() {
     core.setAttribute('stroke-width', 2);
     g.appendChild(core);
 
-    // + cross icon
     const plusH = document.createElementNS(NS, 'rect');
     plusH.setAttribute('x', -5); plusH.setAttribute('y', -1.2);
     plusH.setAttribute('width', 10); plusH.setAttribute('height', 2.4);
@@ -1002,7 +1089,6 @@ function initHospitalMarkers() {
     plusV.setAttribute('fill', color);
     g.appendChild(plusV);
 
-    // label
     const label = document.createElementNS(NS, 'text');
     label.setAttribute('class', 'hospital-label');
     label.setAttribute('y', 30);
@@ -1011,7 +1097,7 @@ function initHospitalMarkers() {
 
     g.addEventListener('mouseenter', e => showTip(e, h));
     g.addEventListener('mousemove', e => moveTip(e));
-    g.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+    g.addEventListener('mouseleave', () => hideTip());
 
     hospitalLayer.appendChild(g);
   });
@@ -1022,13 +1108,16 @@ function initHospitalMarkers() {
 
 async function init() {
   try {
-    const [h, s] = await Promise.all([
+    const [h, s, d] = await Promise.all([
       fetch('/api/hospitals').then(r => r.json()),
-      fetch('/api/symptoms').then(r => r.json())
+      fetch('/api/symptoms').then(r => r.json()),
+      fetch('/api/dynamic').then(r => r.json())
     ]);
     HOSPITALS = h;
     SYMPTOMS = s;
+    DYNAMIC = d;
     initHospitalMarkers();
+    startSimulation();
   } catch (err) {
     console.error('데이터 로딩 실패:', err);
     document.getElementById('mapSvg').innerHTML =
@@ -1038,23 +1127,38 @@ async function init() {
 
 init();
 
-function showTip(e, h) {
+let hoveredHospital = null;
+
+function renderTipContent(h) {
   const equipCount = Object.values(h.equipment).filter(v => v === 1).length;
   const equipChips = Object.entries(h.equipment)
     .filter(([k, v]) => v === 1)
     .map(([k]) => `<span class="eq-chip">${k}</span>`)
     .join('');
 
+  const beds = (h._currentBeds !== undefined) ? h._currentBeds : h.sickbed;
+  const opR  = (h._currentOR !== undefined) ? h._currentOR : h.operating_room;
+  const bedRatio = h.sickbed > 0 ? (beds / h.sickbed * 100).toFixed(0) : '—';
+
   tooltip.innerHTML = `
     <h4>${h.name} <span class="tooltip-tag r${h.rating}">${RATING_NAME[h.rating]}</span></h4>
     <div class="tooltip-row"><span class="label">COORD</span><span class="value">${h.x}, ${h.y}</span></div>
-    <div class="tooltip-row"><span class="label">병상 · BEDS</span><span class="value">${h.sickbed}</span></div>
-    <div class="tooltip-row"><span class="label">수술실 · OR</span><span class="value">${h.operating_room}</span></div>
+    <div class="tooltip-row"><span class="label">병상 · BEDS</span><span class="value">${beds} / ${h.sickbed} (${bedRatio}%)</span></div>
+    <div class="tooltip-row"><span class="label">수술실 · OR</span><span class="value">${opR} / ${h.operating_room}</span></div>
     <div class="tooltip-row"><span class="label">장비 · EQUIP</span><span class="value">${equipCount} / 10</span></div>
     <div class="tooltip-equipment">${equipChips}</div>
   `;
+}
+
+function showTip(e, h) {
+  hoveredHospital = h;
+  renderTipContent(h);
   tooltip.classList.add('show');
   moveTip(e);
+}
+function hideTip() {
+  hoveredHospital = null;
+  tooltip.classList.remove('show');
 }
 function moveTip(e) {
   const rect = mapArea.getBoundingClientRect();
@@ -1062,14 +1166,13 @@ function moveTip(e) {
   const th = tooltip.offsetHeight;
   let left = e.clientX - rect.left + 14;
   let top = e.clientY - rect.top + 14;
-  // 화면 우측 끝 보호
+
   if (left + tw > rect.width) left = e.clientX - rect.left - tw - 14;
   if (top + th > rect.height) top = e.clientY - rect.top - th - 14;
   tooltip.style.left = left + 'px';
   tooltip.style.top  = top + 'px';
 }
 
-// coordinate readout
 svg.addEventListener('mousemove', e => {
   const r = svg.getBoundingClientRect();
   const x = Math.round(((e.clientX - r.left) / r.width) * 1000);
@@ -1078,7 +1181,6 @@ svg.addEventListener('mousemove', e => {
     `X ${String(x).padStart(3,'0')} · Y ${String(y).padStart(3,'0')}`;
 });
 
-// click map → open modal with pre-filled coordinates
 svg.addEventListener('click', e => {
   if (e.target.closest('.hospital-group')) return;
   const r = svg.getBoundingClientRect();
@@ -1087,13 +1189,11 @@ svg.addEventListener('click', e => {
   openModal(x, y);
 });
 
-/* ════════ MODAL & SYMPTOMS ════════ */
 const modal = document.getElementById('modal');
 const symptomList = document.getElementById('symptomList');
-const selectedSymptoms = new Set();  // stores symptom_name (internal id)
+const selectedSymptoms = new Set();  
 let currentKtasFilter = 'all';
 
-// 카테고리 추출 (symptom_name 의 _ 앞 prefix)
 function getCategory(s) {
   const i = s.symptom_name.indexOf('_');
   return i === -1 ? '기타' : s.symptom_name.slice(0, i);
@@ -1114,14 +1214,13 @@ function renderSymptoms(filter = '') {
     return;
   }
 
-  // 카테고리별 그룹화 → KTAS 오름차순(중증 우선) 정렬
   const groups = {};
   list.forEach(s => {
     const cat = getCategory(s);
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push(s);
   });
-  // category order: 신경학적, 심혈관계, 외과, 출혈, 중독·대사, 알러지, 안과, 소아과, 정신과, 준응급, others
+
   const order = ['신경학적','심혈관계','외과','출혈','중독·대사','알러지','안과','소아과','정신과','준응급'];
   const sortedCats = Object.keys(groups).sort((a,b) => {
     const ai = order.indexOf(a), bi = order.indexOf(b);
@@ -1177,7 +1276,6 @@ function updateSummary() {
   }
 }
 
-// KTAS filter tabs
 document.getElementById('ktasFilter').addEventListener('click', e => {
   if (!e.target.classList.contains('ktas-tab')) return;
   document.querySelectorAll('.ktas-tab').forEach(t => t.classList.remove('active'));
@@ -1204,7 +1302,6 @@ document.getElementById('cancelBtn').addEventListener('click', () => modal.class
 document.getElementById('symSearch').addEventListener('input', e => renderSymptoms(e.target.value));
 modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
 
-/* ════════ PATIENT SUBMIT ════════ */
 const patients = [];
 let pSeq = 0;
 
@@ -1288,13 +1385,95 @@ function drawPatientMarker(p) {
   patientLayer.appendChild(g);
 }
 
-/* ════════ CLOCK ════════ */
 function tickClock() {
   const d = new Date();
   document.getElementById('sysTime').textContent =
     d.toLocaleTimeString('ko-KR', {hour12:false}) + ' KST';
 }
 tickClock(); setInterval(tickClock, 1000);
+
+let simTime = 0;
+let simSpeed = 120;     
+let simRunning = true;
+let lastFrameTs = 0;
+
+function formatSimClock(mins) {
+  const m = Math.floor(mins);
+  const hh = String(Math.floor(m / 60)).padStart(2, '0');
+  const mm = String(m % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function lastEventBefore(events, t) {
+  let lo = 0, hi = events.length - 1, idx = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (events[mid].t <= t) { idx = mid; lo = mid + 1; }
+    else hi = mid - 1;
+  }
+  return idx;
+}
+
+function updateHospitalState() {
+  HOSPITALS.forEach(h => {
+    const events = DYNAMIC[h.name];
+    let beds = h.sickbed, opR = h.operating_room;
+    if (events && events.length) {
+      const idx = lastEventBefore(events, simTime);
+      if (idx >= 0) {
+        beds = events[idx].beds;
+        opR  = events[idx]['or'];
+      }
+    }
+    h._currentBeds = beds;
+    h._currentOR = opR;
+
+    if (h._satArc && h.sickbed > 0) {
+      const pct = Math.max(0, Math.min(1, beds / h.sickbed));
+      const filled = pct * h._satCirc;
+      h._satArc.setAttribute('stroke-dasharray', `${filled} ${h._satCirc - filled}`);
+      const color = pct > 0.4 ? '#22c55e' : pct > 0.15 ? '#eab308' : '#ef4444';
+      h._satArc.setAttribute('stroke', color);
+      if (pct <= 0.15) h._satArc.classList.add('critical');
+      else h._satArc.classList.remove('critical');
+    }
+  });
+
+  if (hoveredHospital) renderTipContent(hoveredHospital);
+}
+
+function simFrame(ts) {
+  if (lastFrameTs && simRunning) {
+    const dtSec = (ts - lastFrameTs) / 1000;
+    simTime += dtSec * simSpeed;
+    if (simTime >= 1440) simTime -= 1440;   
+    document.getElementById('simClock').textContent = formatSimClock(simTime);
+    updateHospitalState();
+  }
+  lastFrameTs = ts;
+  requestAnimationFrame(simFrame);
+}
+
+function startSimulation() {
+  simTime = 0;
+  document.getElementById('simClock').textContent = formatSimClock(simTime);
+  updateHospitalState();
+  requestAnimationFrame(simFrame);
+}
+
+document.getElementById('simPlayBtn').addEventListener('click', e => {
+  simRunning = !simRunning;
+  e.currentTarget.textContent = simRunning ? '❚❚' : '▶';
+  e.currentTarget.classList.toggle('paused', !simRunning);
+});
+
+document.querySelectorAll('.sim-btn.speed').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sim-btn.speed').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    simSpeed = parseInt(btn.getAttribute('data-speed'));
+  });
+});
 </script>
 </body>
 </html>
