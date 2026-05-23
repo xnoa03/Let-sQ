@@ -194,20 +194,15 @@ body {
   pointer-events: none;
 }
 
-.hospital-group {
-  cursor: pointer;
+.hospital-group { cursor: pointer; }
+.hospital-inner {
   transition: transform 0.18s;
+  transform: scale(var(--base-scale, 1));
   transform-box: fill-box;
   transform-origin: center;
 }
-.hospital-group:hover { transform: scale(1.18); }
-.hospital-label {
-  font-family: 'Pretendard', sans-serif;
-  font-size: 10px;
-  fill: var(--text-1);
-  text-anchor: middle;
-  pointer-events: none;
-  font-weight: 500;
+.hospital-group:hover .hospital-inner {
+  transform: scale(calc(var(--base-scale, 1) * 1.18));
 }
 
 .tooltip {
@@ -818,6 +813,15 @@ body {
   padding: 20px 0;
   font-style: italic;
 }
+
+.hospital-label {
+  font-family: 'Pretendard', sans-serif;
+  font-size: 10px;
+  fill: #ffffff;
+  text-anchor: middle;
+  pointer-events: none;
+  font-weight: 500;
+}
 </style>
 </head>
 <body>
@@ -827,12 +831,9 @@ body {
     <div class="brand-mark"></div>
     <div class="brand-text">
       <span class="ko">응급 이송 시뮬레이션 콘솔</span>
-      <span class="en">Emergency Dispatch · v0.2</span>
     </div>
   </div>
   <div class="status-pills">
-    <div class="pill"><span class="pill-dot"></span><span>SYSTEM ONLINE</span></div>
-    <div class="pill"><span class="pill-dot amber"></span><span>AI MODEL READY</span></div>
     <div class="pill mono" id="sysTime">--:--:--</div>
   </div>
 </header>
@@ -960,7 +961,7 @@ body {
       <div class="summary" id="summary">증상을 선택해주세요</div>
       <div class="btn-group">
         <button class="btn btn-ghost" id="cancelBtn">취소</button>
-        <button class="btn btn-primary" id="submitBtn" disabled>출동 지령 · DISPATCH</button>
+        <button class="btn btn-primary" id="submitBtn" disabled>등록 확인</button>
       </div>
     </div>
   </div>
